@@ -1,0 +1,108 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galeri Foto</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- SweetAlert CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <!-- Cropper.js CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  
+<body class="bg-gray-100">
+
+    <div class="container mx-auto my-5">
+        <!-- <h1 class="text-3xl font-bold text-center my-5">Galeri Foto</h1> -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="gallery"></div>
+    </div>
+
+    <!-- Edit Photo Modal -->
+<div class="modal fade" id="editPhotoModal" tabindex="-1" role="dialog" aria-labelledby="editPhotoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editPhotoModalLabel">Edit Foto</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <img id="photoToEdit" src="" alt="Photo to edit" class="img-fluid">
+                    </div>
+                    <div class="col-md-4">
+                        <!-- Crop Aspect Ratio Controls -->
+                        <div class="mb-3">
+                            <div class="btn-group d-flex" role="group" aria-label="Crop Aspect Ratio">
+                                <button class="btn btn-primary flex-fill" onclick="setCropAspectRatio(2 / 3)">
+                                    <i class="fas fa-crop-alt"></i> 2:3
+                                </button>
+                                <button class="btn btn-primary flex-fill" onclick="setCropAspectRatio(3 / 4)">
+                                    <i class="fas fa-crop-alt"></i> 3:4
+                                </button>
+                            </div>
+                        </div>
+                
+                        <!-- Zoom and Rotate Controls -->
+                        <div class="mb-3">
+                            <div class="btn-group d-flex justify-content-around" role="group" aria-label="Zoom and Rotate">
+                                <button class="btn btn-secondary" onclick="rotatePhoto()">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                                <button class="btn btn-secondary" onclick="zoomIn()">
+                                    <i class="fas fa-search-plus"></i>
+                                </button>
+                                <button class="btn btn-secondary" onclick="zoomOut()">
+                                    <i class="fas fa-search-minus"></i>
+                                </button>
+                            </div>
+                        </div>
+                
+                        <!-- Background Removal -->
+                        <div class="mb-3">
+                            <button class="btn btn-danger w-100" onclick="removeBackground()">
+                                <i class="fas fa-eraser"></i> Remove Background
+                            </button>
+                        </div>
+                
+                        <!-- Background Color -->
+                        <div class="mb-3">
+                            <input type="color" id="bgColorPicker" class="form-control" value="#ffffff">
+                            <button class="btn btn-secondary mt-2 w-100" onclick="changeBackgroundColor()">
+                                <i class="fas fa-paint-brush"></i> Change Background Color
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    <i class="fas fa-times"></i> Close
+                </button>
+                <button type="button" class="btn btn-primary" onclick="savePhoto()">
+                    <i class="fas fa-save"></i> Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- SweetAlert JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+    <!-- Cropper.js JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+.img-thumbnail {
+    transition: transform 0.2s;
+    width: 100%; /* Full width */
+    height: auto; /* Maintain aspect ratio */
+}
+
+.img-thumbnail:hover {
+    transform: scale(1.05);
+    cursor: pointer;
+}
+
+/* style.css */
+
+.modal-body {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+#photoToEdit {
+    max-width: 100%;
+    max-height: 80vh;
+}
