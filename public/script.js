@@ -38,27 +38,36 @@ function showPhoto(image) {
             cropper.destroy();
         }
         cropper = new Cropper(photoElement, {
-            aspectRatio: 1, // Default aspect ratio
+            aspectRatio: 2 / 3, // Default aspect ratio 2:3
             viewMode: 1,
             responsive: true,
-            autoCropArea: 1
+            autoCropArea: 1,
+            movable: true, // Allow moving the image within the crop box
+            zoomable: true, // Allow zooming the image within the crop box
+            rotatable: true, // Allow rotating the image within the crop box
+            cropBoxResizable: false, // Disable resizing the crop box
+            cropBoxMovable: false, // Disable moving the crop box
+            guides: false, // Disable crop box guides
+            highlight: false, // Disable crop box highlight
+            dragMode: 'move' // Disable creating a new crop box
         });
 
         // Integrate Hammer.js for touch gestures
         const hammer = new Hammer(photoElement);
+        hammer.get('pan').set({ direction: Hammer.DIRECTION_ALL });
         hammer.get('pinch').set({ enable: true });
         hammer.get('rotate').set({ enable: true });
 
+        hammer.on('panmove', (ev) => {
+            cropper.move(ev.deltaX, ev.deltaY);
+        });
+
         hammer.on('pinchmove', (ev) => {
-            cropper.zoom(ev.scale / 10);
+            cropper.zoom(ev.scale - 1);
         });
 
         hammer.on('rotatemove', (ev) => {
             cropper.rotate(ev.rotation);
-        });
-
-        hammer.on('panmove', (ev) => {
-            cropper.move(ev.deltaX / 10, ev.deltaY / 10);
         });
     });
 
@@ -71,9 +80,18 @@ function showPhoto(image) {
     });
 }
 
+function setCropAspectRatio(aspectRatio) {
+    if (cropper) {
+        cropper.setAspectRatio(aspectRatio);
+        Swal.fire('Aspect Ratio Changed', `Aspect ratio set to ${aspectRatio}:1`, 'info');
+    } else {
+        Swal.fire('Error', 'No image is being edited.', 'error');
+    }
+}
+
 function rotatePhoto() {
     if (cropper) {
-        cropper.rotate(45); // Rotate by 45 degrees
+        cropper.rotate(90); // Rotate by 45 degrees
     }
 }
 
@@ -93,14 +111,10 @@ function removeBackground() {
     if (cropper) {
         cropper.getCroppedCanvas().toBlob(blob => {
             const formData = new FormData();
-            formData.append('image_file', blob);
-            formData.append('size', 'auto'); // Adjust size if needed
+            formData.append('file', blob);
 
-            fetch('https://api.remove.bg/v1.0/removebg', {
+            fetch('http://localhost:5000/upload', {  // Use the endpoint for uploading the image
                 method: 'POST',
-                headers: {
-                    'X-Api-Key': 'FJwPAWzY7ehc254NP3yJWL9Y'
-                },
                 body: formData
             })
             .then(response => response.blob())
@@ -119,18 +133,13 @@ function removeBackground() {
 }
 
 function changeBackgroundColor() {
-    const color = document.getElementById('bgColorPicker').value;
     if (cropper) {
         cropper.getCroppedCanvas().toBlob(blob => {
             const formData = new FormData();
-            formData.append('image_file', blob);
-            formData.append('size', 'auto'); // Adjust size if needed
+            formData.append('file', blob);
 
-            fetch('https://api.remove.bg/v1.0/removebg', {
+            fetch('http://localhost:5000/upload', {  // Use the endpoint for uploading the image
                 method: 'POST',
-                headers: {
-                    'X-Api-Key': 'FJwPAWzY7ehc254NP3yJWL9Y'
-                },
                 body: formData
             })
             .then(response => response.blob())
@@ -145,6 +154,7 @@ function changeBackgroundColor() {
                     canvas.width = img.width;
                     canvas.height = img.height;
 
+                    const color = document.getElementById('bgColorPicker').value;
                     ctx.fillStyle = color;
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.drawImage(img, 0, 0);
