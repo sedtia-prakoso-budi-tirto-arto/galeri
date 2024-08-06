@@ -25,11 +25,14 @@ document.addEventListener("DOMContentLoaded", () => {
         .catch(error => console.error('Error fetching images:', error));
 });
 
+let rotateControl, photoElement, isRotating = false, currentAngle = 0;
+const rotationSensitivity = 0.5; // Faktor sensitivitas rotasi
+
 function showPhoto(image) {
     const photoUrl = `/pictures/${image}`;
-    const photoElement = document.getElementById('photoToEdit');
+    photoElement = document.getElementById('photoToEdit');
     photoElement.src = photoUrl;
-    currentImageName = image; // Store the name of the current image
+    currentImageName = image;
 
     $('#editPhotoModal').modal('show');
 
@@ -38,36 +41,25 @@ function showPhoto(image) {
             cropper.destroy();
         }
         cropper = new Cropper(photoElement, {
-            aspectRatio: 2 / 3, // Default aspect ratio 2:3
+            aspectRatio: 2 / 3,
             viewMode: 1,
             responsive: true,
             autoCropArea: 1,
-            movable: true, // Allow moving the image within the crop box
-            zoomable: true, // Allow zooming the image within the crop box
-            rotatable: true, // Allow rotating the image within the crop box
-            cropBoxResizable: false, // Disable resizing the crop box
-            cropBoxMovable: false, // Disable moving the crop box
-            guides: false, // Disable crop box guides
-            highlight: false, // Disable crop box highlight
-            dragMode: 'move' // Disable creating a new crop box
+            movable: true,
+            zoomable: true,
+            rotatable: true,
+            cropBoxResizable: false,
+            cropBoxMovable: false,
+            guides: false,
+            highlight: false,
+            dragMode: 'move'
         });
 
-        // Integrate Hammer.js for touch gestures
-        const hammer = new Hammer(photoElement);
-        hammer.get('pinch').set({ enable: true });
-        hammer.get('rotate').set({ enable: true });
-
-        hammer.on('pinchmove', (ev) => {
-            cropper.zoom(ev.scale - 1);
-        });
-
-        hammer.on('rotatemove', (ev) => {
-            cropper.rotate(ev.rotation);
-        });
-
-        hammer.on('panmove', (ev) => {
-            cropper.move(ev.deltaX, ev.deltaY);
-        });
+        // Kontrol rotasi
+        rotateControl = document.getElementById('rotateControl');
+        rotateControl.addEventListener('mousedown', startRotate);
+        document.addEventListener('mousemove', rotateImage);
+        document.addEventListener('mouseup', endRotate);
     });
 
     $('#editPhotoModal').on('hidden.bs.modal', () => {
@@ -76,7 +68,40 @@ function showPhoto(image) {
             cropper = null;
         }
         photoElement.src = ''; // Clear image source
+        document.removeEventListener('mousemove', rotateImage);
+        document.removeEventListener('mouseup', endRotate);
     });
+}
+
+function startRotate(e) {
+    isRotating = true;
+    const rect = rotateControl.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+}
+
+function rotateImage(e) {
+    if (isRotating) {
+        const rect = rotateControl.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const currentAngleRad = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+        const angleDiff = (currentAngleRad - startAngle) * (180 / Math.PI);
+
+        currentAngle += angleDiff * rotationSensitivity;
+        startAngle = currentAngleRad;
+
+        // Terapkan rotasi pada gambar dan kontrol
+        if (cropper) {
+            cropper.rotate(angleDiff * rotationSensitivity);
+        }
+        rotateControl.style.transform = `rotate(${currentAngle}deg)`;
+    }
+}
+
+function endRotate() {
+    isRotating = false;
 }
 
 function setCropAspectRatio(aspectRatio) {
