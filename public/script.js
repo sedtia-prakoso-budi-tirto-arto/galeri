@@ -54,13 +54,8 @@ function showPhoto(image) {
 
         // Integrate Hammer.js for touch gestures
         const hammer = new Hammer(photoElement);
-        hammer.get('pan').set({ direction: Hammer.DIRECTION_ALL });
         hammer.get('pinch').set({ enable: true });
         hammer.get('rotate').set({ enable: true });
-
-        hammer.on('panmove', (ev) => {
-            cropper.move(ev.deltaX, ev.deltaY);
-        });
 
         hammer.on('pinchmove', (ev) => {
             cropper.zoom(ev.scale - 1);
@@ -68,6 +63,10 @@ function showPhoto(image) {
 
         hammer.on('rotatemove', (ev) => {
             cropper.rotate(ev.rotation);
+        });
+
+        hammer.on('panmove', (ev) => {
+            cropper.move(ev.deltaX, ev.deltaY);
         });
     });
 
