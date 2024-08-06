@@ -43,6 +43,23 @@ function showPhoto(image) {
             responsive: true,
             autoCropArea: 1
         });
+
+        // Integrate Hammer.js for touch gestures
+        const hammer = new Hammer(photoElement);
+        hammer.get('pinch').set({ enable: true });
+        hammer.get('rotate').set({ enable: true });
+
+        hammer.on('pinchmove', (ev) => {
+            cropper.zoom(ev.scale / 10);
+        });
+
+        hammer.on('rotatemove', (ev) => {
+            cropper.rotate(ev.rotation);
+        });
+
+        hammer.on('panmove', (ev) => {
+            cropper.move(ev.deltaX / 10, ev.deltaY / 10);
+        });
     });
 
     $('#editPhotoModal').on('hidden.bs.modal', () => {
@@ -52,15 +69,6 @@ function showPhoto(image) {
         }
         photoElement.src = ''; // Clear image source
     });
-}
-
-function setCropAspectRatio(aspectRatio) {
-    if (cropper) {
-        cropper.setAspectRatio(aspectRatio);
-        Swal.fire('Aspect Ratio Changed', `Aspect ratio set to ${aspectRatio}:1`, 'info');
-    } else {
-        Swal.fire('Error', 'No image is being edited.', 'error');
-    }
 }
 
 function rotatePhoto() {
@@ -91,7 +99,7 @@ function removeBackground() {
             fetch('https://api.remove.bg/v1.0/removebg', {
                 method: 'POST',
                 headers: {
-                    'X-Api-Key': 'okBcBLh2hFSRM1zyhGWQ57tK'
+                    'X-Api-Key': 'FJwPAWzY7ehc254NP3yJWL9Y'
                 },
                 body: formData
             })
@@ -121,7 +129,7 @@ function changeBackgroundColor() {
             fetch('https://api.remove.bg/v1.0/removebg', {
                 method: 'POST',
                 headers: {
-                    'X-Api-Key': 'okBcBLh2hFSRM1zyhGWQ57tK'
+                    'X-Api-Key': 'FJwPAWzY7ehc254NP3yJWL9Y'
                 },
                 body: formData
             })
