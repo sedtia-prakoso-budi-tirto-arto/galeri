@@ -1,5 +1,9 @@
 let cropper;
 let currentImageName = '';
+let currentAngle = 0; // Sudah didefinisikan
+let rotateControl, photoElement, isRotating = false, startAngle;
+const rotationSensitivity = 0.5; // Faktor sensitivitas rotasi
+const maxDegrees = 360; // Batas maksimum derajat rotasi
 
 document.addEventListener("DOMContentLoaded", () => {
     const gallery = document.getElementById("gallery");
@@ -24,9 +28,6 @@ document.addEventListener("DOMContentLoaded", () => {
         })
         .catch(error => console.error('Error fetching images:', error));
 });
-
-let rotateControl, photoElement, isRotating = false, currentAngle = 0;
-const rotationSensitivity = 0.5; // Faktor sensitivitas rotasi
 
 function showPhoto(image) {
     const photoUrl = `/pictures/${image}`;
@@ -55,11 +56,20 @@ function showPhoto(image) {
             dragMode: 'move'
         });
 
-        // Kontrol rotasi
+        // Kontrol rotasi manual
         rotateControl = document.getElementById('rotateControl');
         rotateControl.addEventListener('mousedown', startRotate);
         document.addEventListener('mousemove', rotateImage);
         document.addEventListener('mouseup', endRotate);
+
+        // Kontrol rotasi menggunakan dua jari
+        const hammer = new Hammer(photoElement);
+        hammer.get('rotate').set({ enable: true });
+        hammer.on('rotatemove', (ev) => {
+            cropper.rotate(ev.rotation * rotationSensitivity);
+            currentAngle += ev.rotation * rotationSensitivity;
+            currentAngle = normalizeAngle(currentAngle);
+        });
     });
 
     $('#editPhotoModal').on('hidden.bs.modal', () => {
@@ -90,6 +100,7 @@ function rotateImage(e) {
         const angleDiff = (currentAngleRad - startAngle) * (180 / Math.PI);
 
         currentAngle += angleDiff * rotationSensitivity;
+        currentAngle = normalizeAngle(currentAngle);
         startAngle = currentAngleRad;
 
         // Terapkan rotasi pada gambar dan kontrol
@@ -104,6 +115,10 @@ function endRotate() {
     isRotating = false;
 }
 
+function normalizeAngle(angle) {
+    return (angle % maxDegrees + maxDegrees) % maxDegrees; // Normalisasi derajat
+}
+
 function setCropAspectRatio(aspectRatio) {
     if (cropper) {
         cropper.setAspectRatio(aspectRatio);
@@ -115,7 +130,7 @@ function setCropAspectRatio(aspectRatio) {
 
 function rotatePhoto() {
     if (cropper) {
-        cropper.rotate(90); // Rotate by 45 degrees
+        cropper.rotate(90); // Rotate by 90 degrees
     }
 }
 
