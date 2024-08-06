@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,8 +15,7 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-  </head>
-  
+</head>
 <body class="bg-gray-100">
 
     <div class="container mx-auto my-5">
@@ -41,6 +42,14 @@
                             </div>
                         </div>
                         <div class="col-md-4">
+                            <!-- Dropdown untuk memilih folder -->
+                            <div class="mb-3">
+                                <label for="folderSelect" class="form-label">Pilih Folder</label>
+                                <select id="folderSelect" class="form-control">
+                                    <!-- Pilihan folder akan diisi oleh JavaScript -->
+                                </select>
+                            </div>
+
                             <!-- Crop Aspect Ratio Controls -->
                             <div class="mb-3">
                                 <div class="btn-group d-flex" role="group" aria-label="Crop Aspect Ratio">

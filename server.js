@@ -17,12 +17,12 @@ const upload = multer({
     dest: 'temp/', // Temporary storage for file uploads
 });
 
-// Directory to save edited images
-const editedImagesDir = path.join('D:\\STUDIO8\\PASS_PHOTO\\galeri\\edited-images');
+// Base directory for network folder
+const baseDirectory = '\\\\192.168.1.22\\studio 2\\06082024';
 
-// Ensure the directory exists
-if (!fs.existsSync(editedImagesDir)) {
-    fs.mkdirSync(editedImagesDir, { recursive: true });
+// Ensure base directory exists
+if (!fs.existsSync(baseDirectory)) {
+    fs.mkdirSync(baseDirectory, { recursive: true });
 }
 
 // Serve static files (e.g., images) from the correct directory
@@ -53,26 +53,83 @@ app.get('/api/images', (req, res) => {
     });
 });
 
-// Endpoint to handle saving edited images
-app.post('/api/save-image', upload.single('file'), (req, res) => {
-    const file = req.file;
-
-    if (!file) {
-        return res.status(400).json({ success: false, message: 'No file uploaded.' });
-    }
-
-    // Generate the new filename with "edited" appended before the extension
-    const originalName = path.parse(file.originalname);
-    const newFilename = `${originalName.name}-edited${originalName.ext}`;
-    const targetPath = path.join(editedImagesDir, newFilename);
-
-    fs.rename(file.path, targetPath, (err) => {
+// Endpoint untuk mendapatkan daftar folder
+app.get('/api/folder-list', (req, res) => {
+    fs.readdir(baseDirectory, (err, folders) => {
         if (err) {
-            console.error('Error saving the file:', err);
-            return res.status(500).json({ success: false, message: 'Failed to save the image.' });
+            console.error('Error reading directory:', err);
+            return res.status(500).json({ error: 'Unable to read directory' });
         }
 
-        res.json({ success: true });
+        const directoryFolders = folders.filter(folder => {
+            const folderPath = path.join(baseDirectory, folder);
+            return fs.statSync(folderPath).isDirectory();
+        });
+
+        res.json(directoryFolders);
+    });
+});
+
+app.post('/api/save-image', upload.fields([{ name: 'original' }, { name: 'edited' }]), (req, res) => {
+    console.log('Request Body:', req.body);
+    console.log('Request Files:', req.files);
+
+    const originalFile = req.files['original'] ? req.files['original'][0] : null;
+    const editedFile = req.files['edited'] ? req.files['edited'][0] : null;
+    const folder = req.body.folder;
+
+    if (!folder) {
+        return res.status(400).json({ success: false, message: 'No folder specified.' });
+    }
+
+    if (!originalFile || !editedFile) {
+        return res.status(400).json({ success: false, message: 'Both original and edited files are required.' });
+    }
+
+    // Define directories
+    const pilFolder = path.join(baseDirectory, folder, 'pil');
+    const fixFolder = path.join(baseDirectory, folder, 'fix');
+
+    // Create directories if they do not exist
+    if (!fs.existsSync(pilFolder)) {
+        fs.mkdirSync(pilFolder, { recursive: true });
+    }
+    if (!fs.existsSync(fixFolder)) {
+        fs.mkdirSync(fixFolder, { recursive: true });
+    }
+
+    // Function to handle file copy and cleanup
+    const handleFile = (file, targetFolder, callback) => {
+        const targetPath = path.join(targetFolder, file.originalname);
+        fs.copyFile(file.path, targetPath, (err) => {
+            if (err) {
+                console.error(`Error saving file ${file.originalname}:`, err);
+                return callback(err);
+            }
+
+            // Clean up temporary file
+            fs.unlink(file.path, (err) => {
+                if (err) console.error(`Error deleting temporary file ${file.originalname}:`, err);
+            });
+
+            callback(null);
+        });
+    };
+
+    // Handle saving the original file
+    handleFile(originalFile, pilFolder, (err) => {
+        if (err) {
+            return res.status(500).json({ success: false, message: 'Failed to save original image.' });
+        }
+
+        // Handle saving the edited file
+        handleFile(editedFile, fixFolder, (err) => {
+            if (err) {
+                return res.status(500).json({ success: false, message: 'Failed to save edited image.' });
+            }
+
+            res.json({ success: true });
+        });
     });
 });
 

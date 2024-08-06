@@ -7,6 +7,25 @@ const maxDegrees = 360; // Batas maksimum derajat rotasi
 
 document.addEventListener("DOMContentLoaded", () => {
     const gallery = document.getElementById("gallery");
+    // Load folder options into dropdown
+    const folderSelect = document.getElementById('folderSelect');
+
+    fetch('/api/folder-list')
+        .then(response => response.json())
+        .then(folders => {
+            folderSelect.innerHTML = ''; // Clear existing options
+            if (Array.isArray(folders)) {
+                folders.forEach(folder => {
+                    const option = document.createElement("option");
+                    option.value = folder;
+                    option.textContent = folder;
+                    folderSelect.appendChild(option);
+                });
+            } else {
+                console.error('Data folder bukan array:', folders);
+            }
+        })
+        .catch(error => console.error('Error fetching folder list:', error));
 
     fetch('/api/images')
         .then(response => response.json())
@@ -216,33 +235,47 @@ function changeBackgroundColor() {
 
 function savePhoto() {
     if (cropper) {
-        cropper.getCroppedCanvas().toBlob(blob => {
-            const originalName = currentImageName.split('.').slice(0, -1).join('.'); // Extract the base name without extension
-            const extension = currentImageName.split('.').pop(); // Extract the file extension
-            
-            // Format the new filename
-            const newFilename = `${originalName}.${extension}`;
+        const formData = new FormData();
+        const originalFilename = currentImageName;
+        const editedFilename = 'edited_' + originalFilename; // Ganti nama jika diperlukan
 
-            const formData = new FormData();
-            formData.append('file', blob, newFilename);
+        // Ambil gambar asli dari URL
+        fetch(`/pictures/${originalFilename}`)
+            .then(response => response.blob())
+            .then(originalBlob => {
+                formData.append('original', originalBlob, originalFilename);
 
-            fetch('/api/save-image', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire('Success', 'Image saved successfully!', 'success');
-                    $('#editPhotoModal').modal('hide'); // Hide modal after saving
-                } else {
-                    Swal.fire('Error', 'Failed to save the image.', 'error');
-                }
+                // Ambil gambar hasil edit
+                cropper.getCroppedCanvas().toBlob(blob => {
+                    formData.append('edited', blob, editedFilename);
+
+                    // Ambil lokasi folder dari dropdown
+                    const folderSelect = document.getElementById('folderSelect');
+                    const selectedFolder = folderSelect.value;
+                    formData.append('folder', selectedFolder);
+
+                    fetch('/api/save-image', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire('Success', 'Image saved successfully!', 'success');
+                            $('#editPhotoModal').modal('hide'); // Hide modal after saving
+                        } else {
+                            Swal.fire('Error', 'Failed to save the image.', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error saving image:', error);
+                        Swal.fire('Error', 'There was a problem saving the image.', 'error');
+                    });
+                }, 'image/png', 1); // Use PNG with quality factor 1
             })
             .catch(error => {
-                console.error('Error saving image:', error);
-                Swal.fire('Error', 'There was a problem saving the image.', 'error');
+                console.error('Error fetching original image:', error);
+                Swal.fire('Error', 'There was a problem fetching the original image.', 'error');
             });
-        }, 'image/png', 1); // Use PNG with quality factor 1
     }
 }
