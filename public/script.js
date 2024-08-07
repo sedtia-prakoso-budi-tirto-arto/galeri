@@ -1,37 +1,20 @@
 let cropper;
 let currentImageName = '';
-let currentAngle = 0; // Sudah didefinisikan
+let currentAngle = 0;
 let rotateControl, photoElement, isRotating = false, startAngle;
-const rotationSensitivity = 0.5; // Faktor sensitivitas rotasi
-const maxDegrees = 360; // Batas maksimum derajat rotasi
+const rotationSensitivity = 0.5;
+const maxDegrees = 360;
+let isBackupMode = false;
+let undoStack = [];
 
-document.addEventListener("DOMContentLoaded", () => {
+// Definisikan loadGallery di sini agar bisa diakses secara global
+function loadGallery() {
     const gallery = document.getElementById("gallery");
-    // Load folder options into dropdown
-    const folderSelect = document.getElementById('folderSelect');
-
-    fetch('/api/folder-list')
-        .then(response => response.json())
-        .then(folders => {
-            folderSelect.innerHTML = ''; // Clear existing options
-            if (Array.isArray(folders)) {
-                folders.forEach(folder => {
-                    const option = document.createElement("option");
-                    option.value = folder;
-                    option.textContent = folder;
-                    folderSelect.appendChild(option);
-                });
-            } else {
-                console.error('Data folder bukan array:', folders);
-            }
-        })
-        .catch(error => console.error('Error fetching folder list:', error));
-
-    fetch('/api/images')
+    const endpoint = isBackupMode ? '/api/backup-images' : '/api/images';
+    fetch(endpoint)
         .then(response => response.json())
         .then(images => {
-            console.log('Data gambar yang diterima:', images);
-            gallery.innerHTML = ''; // Clear the gallery before adding new photos
+            gallery.innerHTML = '';
             if (Array.isArray(images)) {
                 images.forEach(image => {
                     const photoDiv = document.createElement("div");
@@ -46,6 +29,85 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         })
         .catch(error => console.error('Error fetching images:', error));
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const gallery = document.getElementById("gallery");
+    const folderSelect = document.getElementById('folderSelect');
+    const backupBtn = document.getElementById('backupBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    fetch('/api/folder-list')
+        .then(response => response.json())
+        .then(folders => {
+            folderSelect.innerHTML = '';
+            if (Array.isArray(folders)) {
+                folders.forEach(folder => {
+                    const option = document.createElement("option");
+                    option.value = folder;
+                    option.textContent = folder;
+                    folderSelect.appendChild(option);
+                });
+            } else {
+                console.error('Data folder bukan array:', folders);
+            }
+        })
+        .catch(error => console.error('Error fetching folder list:', error));
+
+    async function loadBackupGallery(folder) {
+        try {
+            const response = await fetch(`/api/backup-images?folder=${folder}`);
+            if (!response.ok) throw new Error('Failed to load images');
+
+            const images = await response.json();
+            gallery.innerHTML = '';
+            images.forEach(image => {
+                const imgElement = document.createElement('img');
+                imgElement.src = `http://localhost:3001/pictures/${image}`;
+                imgElement.alt = image;
+                gallery.appendChild(imgElement);
+            });
+        } catch (error) {
+            console.error('Error fetching images:', error);
+        }
+    }
+
+    loadGallery();
+
+    backupBtn.addEventListener('click', () => {
+        const selectedFolder = folderSelect.value;
+
+        fetch('/api/backup-images', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ backupFolder: selectedFolder })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire('Success', 'Backup completed successfully!', 'success');
+                isBackupMode = true;
+                backBtn.style.display = 'block';
+                backupBtn.style.display = 'none';
+                loadBackupGallery(selectedFolder);
+            } else {
+                Swal.fire('Error', 'Failed to complete backup.', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error during backup:', error);
+            Swal.fire('Error', 'There was a problem with the backup process.', 'error');
+        });
+    });
+
+    backBtn.addEventListener('click', () => {
+        isBackupMode = false;
+        loadGallery();
+        backBtn.style.display = 'none';
+        backupBtn.style.display = 'block';
+    });
 });
 
 function showPhoto(image) {
@@ -75,13 +137,15 @@ function showPhoto(image) {
             dragMode: 'move'
         });
 
-        // Kontrol rotasi manual
         rotateControl = document.getElementById('rotateControl');
-        rotateControl.addEventListener('mousedown', startRotate);
-        document.addEventListener('mousemove', rotateImage);
-        document.addEventListener('mouseup', endRotate);
+        if (rotateControl) {
+            rotateControl.addEventListener('mousedown', startRotate);
+            document.addEventListener('mousemove', rotateImage);
+            document.addEventListener('mouseup', endRotate);
+        } else {
+            console.error('Rotate control not found');
+        }
 
-        // Kontrol rotasi menggunakan dua jari
         const hammer = new Hammer(photoElement);
         hammer.get('rotate').set({ enable: true });
         hammer.on('rotatemove', (ev) => {
@@ -89,6 +153,9 @@ function showPhoto(image) {
             currentAngle += ev.rotation * rotationSensitivity;
             currentAngle = normalizeAngle(currentAngle);
         });
+
+        undoStack = [];
+        saveStateForUndo();
     });
 
     $('#editPhotoModal').on('hidden.bs.modal', () => {
@@ -96,22 +163,28 @@ function showPhoto(image) {
             cropper.destroy();
             cropper = null;
         }
-        photoElement.src = ''; // Clear image source
+        photoElement.src = '';
         document.removeEventListener('mousemove', rotateImage);
         document.removeEventListener('mouseup', endRotate);
     });
 }
 
 function startRotate(e) {
+    console.log("startRotate called");
     isRotating = true;
-    const rect = rotateControl.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+    if (rotateControl) {
+        const rect = rotateControl.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+    } else {
+        console.error('Rotate control is not defined');
+    }
 }
 
 function rotateImage(e) {
-    if (isRotating) {
+    if (isRotating && rotateControl) {
+        console.log("rotateImage called");
         const rect = rotateControl.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
@@ -122,7 +195,6 @@ function rotateImage(e) {
         currentAngle = normalizeAngle(currentAngle);
         startAngle = currentAngleRad;
 
-        // Terapkan rotasi pada gambar dan kontrol
         if (cropper) {
             cropper.rotate(angleDiff * rotationSensitivity);
         }
@@ -131,11 +203,93 @@ function rotateImage(e) {
 }
 
 function endRotate() {
+    console.log("endRotate called");
     isRotating = false;
 }
 
 function normalizeAngle(angle) {
-    return (angle % maxDegrees + maxDegrees) % maxDegrees; // Normalisasi derajat
+    return (angle % maxDegrees + maxDegrees) % maxDegrees;
+}
+
+function saveStateForUndo() {
+    if (cropper && cropper.getCroppedCanvas()) {
+        cropper.getCroppedCanvas().toBlob(blob => {
+            undoStack.push(URL.createObjectURL(blob));
+        });
+    } else {
+        console.error('Cropper atau canvas tidak tersedia untuk menyimpan state.');
+    }
+}
+
+document.getElementById('undoEditBtn').addEventListener('click', () => {
+    if (undoStack.length > 1) {
+        undoStack.pop(); // Hapus state terbaru
+        const previousStateUrl = undoStack[undoStack.length - 1];
+
+        if (cropper) {
+            cropper.destroy();
+        }
+        photoElement.src = previousStateUrl;
+        cropper = new Cropper(photoElement, {
+            aspectRatio: 2 / 3,
+            viewMode: 1,
+            responsive: true,
+            autoCropArea: 1,
+            movable: true,
+            zoomable: true,
+            rotatable: true,
+            cropBoxResizable: false,
+            cropBoxMovable: false,
+            guides: false,
+            highlight: false,
+            dragMode: 'move'
+        });
+    } else {
+        Swal.fire('Info', 'Tidak ada perubahan untuk di-undo.', 'info');
+    }
+});
+
+document.getElementById('undoBackupBtn').addEventListener('click', () => {
+    fetch('/api/undo-backup', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire('Success', 'Backup undo completed successfully!', 'success');
+            loadGallery(); // Memanggil loadGallery secara global
+        } else {
+            Swal.fire('Error', 'Failed to undo backup.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error during undo backup:', error);
+        Swal.fire('Error', 'There was a problem with the undo backup process.', 'error');
+    });
+});
+
+function rotatePhoto() {
+    if (cropper) {
+        saveStateForUndo();
+        cropper.rotate(90);
+    }
+}
+
+function zoomIn() {
+    if (cropper) {
+        saveStateForUndo();
+        cropper.zoom(0.1);
+    }
+}
+
+function zoomOut() {
+    if (cropper) {
+        saveStateForUndo();
+        cropper.zoom(-0.1);
+    }
 }
 
 function setCropAspectRatio(aspectRatio) {
@@ -147,31 +301,13 @@ function setCropAspectRatio(aspectRatio) {
     }
 }
 
-function rotatePhoto() {
-    if (cropper) {
-        cropper.rotate(90); // Rotate by 90 degrees
-    }
-}
-
-function zoomIn() {
-    if (cropper) {
-        cropper.zoom(0.1); // Zoom in
-    }
-}
-
-function zoomOut() {
-    if (cropper) {
-        cropper.zoom(-0.1); // Zoom out
-    }
-}
-
 function removeBackground() {
     if (cropper) {
         cropper.getCroppedCanvas().toBlob(blob => {
             const formData = new FormData();
             formData.append('file', blob);
 
-            fetch('http://localhost:5000/upload', {  // Use the endpoint for uploading the image
+            fetch('http://localhost:5000/upload', {
                 method: 'POST',
                 body: formData
             })
@@ -179,14 +315,14 @@ function removeBackground() {
             .then(blob => {
                 const url = URL.createObjectURL(blob);
                 document.getElementById('photoToEdit').src = url;
-                cropper.replace(url); // Replace with new image URL
+                cropper.replace(url);
                 Swal.fire('Success', 'Background removed!', 'success');
             })
             .catch(error => {
                 console.error('Error removing background:', error);
                 Swal.fire('Error', 'There was a problem removing the background.', 'error');
             });
-        }, 'image/png'); // Use PNG to avoid compression
+        }, 'image/png');
     }
 }
 
@@ -196,7 +332,7 @@ function changeBackgroundColor() {
             const formData = new FormData();
             formData.append('file', blob);
 
-            fetch('http://localhost:5000/upload', {  // Use the endpoint for uploading the image
+            fetch('http://localhost:5000/upload', {
                 method: 'POST',
                 body: formData
             })
@@ -220,16 +356,16 @@ function changeBackgroundColor() {
                     canvas.toBlob(newBlob => {
                         const newUrl = URL.createObjectURL(newBlob);
                         document.getElementById('photoToEdit').src = newUrl;
-                        cropper.replace(newUrl); // Replace with new image URL
+                        cropper.replace(newUrl);
                         Swal.fire('Success', 'Background color changed!', 'success');
-                    }, 'image/png', 1); // Use PNG with quality factor 1
+                    }, 'image/png', 1);
                 };
             })
             .catch(error => {
                 console.error('Error changing background color:', error);
                 Swal.fire('Error', 'There was a problem changing the background color.', 'error');
             });
-        }, 'image/png', 1); // Use PNG with quality factor 1
+        }, 'image/png', 1);
     }
 }
 
@@ -237,19 +373,16 @@ function savePhoto() {
     if (cropper) {
         const formData = new FormData();
         const originalFilename = currentImageName;
-        const editedFilename = 'edited_' + originalFilename; // Ganti nama jika diperlukan
+        const editedFilename = 'edited_' + originalFilename;
 
-        // Ambil gambar asli dari URL
         fetch(`/pictures/${originalFilename}`)
             .then(response => response.blob())
             .then(originalBlob => {
                 formData.append('original', originalBlob, originalFilename);
 
-                // Ambil gambar hasil edit
                 cropper.getCroppedCanvas().toBlob(blob => {
                     formData.append('edited', blob, editedFilename);
 
-                    // Ambil lokasi folder dari dropdown
                     const folderSelect = document.getElementById('folderSelect');
                     const selectedFolder = folderSelect.value;
                     formData.append('folder', selectedFolder);
@@ -262,7 +395,7 @@ function savePhoto() {
                     .then(data => {
                         if (data.success) {
                             Swal.fire('Success', 'Image saved successfully!', 'success');
-                            $('#editPhotoModal').modal('hide'); // Hide modal after saving
+                            $('#editPhotoModal').modal('hide');
                         } else {
                             Swal.fire('Error', 'Failed to save the image.', 'error');
                         }
@@ -271,7 +404,7 @@ function savePhoto() {
                         console.error('Error saving image:', error);
                         Swal.fire('Error', 'There was a problem saving the image.', 'error');
                     });
-                }, 'image/png', 1); // Use PNG with quality factor 1
+                }, 'image/png', 1);
             })
             .catch(error => {
                 console.error('Error fetching original image:', error);
