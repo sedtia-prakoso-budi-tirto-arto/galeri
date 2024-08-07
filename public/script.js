@@ -308,7 +308,7 @@ function removeBackground() {
             const formData = new FormData();
             formData.append('file', blob);
 
-            fetch('http://localhost:5000/upload', {
+            fetch('http://192.168.1.104:5000/upload', {
                 method: 'POST',
                 body: formData
             })
@@ -333,7 +333,7 @@ function changeBackgroundColor() {
             const formData = new FormData();
             formData.append('file', blob);
 
-            fetch('http://localhost:5000/upload', {
+            fetch('http://192.168.1.104:5000/upload', {
                 method: 'POST',
                 body: formData
             })
