@@ -149,10 +149,11 @@ function showPhoto(image) {
         const hammer = new Hammer(photoElement);
         hammer.get('rotate').set({ enable: true });
         hammer.on('rotatemove', (ev) => {
+            console.log('Rotation Event:', ev);
             cropper.rotate(ev.rotation * rotationSensitivity);
             currentAngle += ev.rotation * rotationSensitivity;
             currentAngle = normalizeAngle(currentAngle);
-        });
+        });        
 
         undoStack = [];
         saveStateForUndo();
