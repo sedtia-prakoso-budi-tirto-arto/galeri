@@ -120,6 +120,7 @@ function showPhoto(image) {
         if (cropper) {
             cropper.destroy();
         }
+    
         cropper = new Cropper(photoElement, {
             aspectRatio: 2 / 3,
             viewMode: 1,
@@ -134,7 +135,7 @@ function showPhoto(image) {
             highlight: false,
             dragMode: 'move'
         });
-
+    
         rotateControl = document.getElementById('rotateControl');
         if (rotateControl) {
             rotateControl.addEventListener('mousedown', startRotate);
@@ -143,7 +144,7 @@ function showPhoto(image) {
         } else {
             console.error('Rotate control not found');
         }
-
+    
         const hammer = new Hammer(photoElement);
         hammer.get('rotate').set({ enable: true });
         hammer.on('rotatemove', (ev) => {
@@ -153,11 +154,11 @@ function showPhoto(image) {
                 currentAngle += ev.rotation * rotationSensitivity;
                 currentAngle = normalizeAngle(currentAngle);
             }
-        });        
-
+        });
+    
         undoStack = [];
         saveStateForUndo();
-    });
+    });    
 
     $('#editPhotoModal').on('hidden.bs.modal', () => {
         if (cropper) {
