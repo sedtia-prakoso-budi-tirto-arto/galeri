@@ -40,19 +40,17 @@ document.addEventListener("DOMContentLoaded", () => {
     fetch('/api/folder-list')
         .then(response => response.json())
         .then(folders => {
-            folderSelect.innerHTML = '';
-            if (Array.isArray(folders)) {
-                folders.forEach(folder => {
-                    const option = document.createElement("option");
-                    option.value = folder;
-                    option.textContent = folder;
-                    folderSelect.appendChild(option);
-                });
-            } else {
-                console.error('Data folder bukan array:', folders);
-            }
+            const folderSelect = document.getElementById('folderSelect');
+            folders.forEach(folder => {
+                const option = document.createElement('option');
+                option.value = folder;
+                option.textContent = folder;
+                folderSelect.appendChild(option);
+            });
         })
-        .catch(error => console.error('Error fetching folder list:', error));
+        .catch(error => {
+            console.error('Error fetching folder list:', error);
+        });
 
     async function loadBackupGallery(folder) {
         try {
@@ -75,14 +73,16 @@ document.addEventListener("DOMContentLoaded", () => {
     loadGallery();
 
     backupBtn.addEventListener('click', () => {
-        const selectedFolder = folderSelect.value;
-
+        // Create a folder name based on today's date
+        const today = new Date();
+        const folderName = `${today.getDate().toString().padStart(2, '0')}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getFullYear()}`;
+        
         fetch('/api/backup-images', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ backupFolder: selectedFolder })
+            body: JSON.stringify({ backupFolder: folderName })
         })
         .then(response => response.json())
         .then(data => {
@@ -91,7 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 isBackupMode = true;
                 backBtn.style.display = 'block';
                 backupBtn.style.display = 'none';
-                loadBackupGallery(selectedFolder);
+                loadBackupGallery(folderName);
             } else {
                 Swal.fire('Error', 'Failed to complete backup.', 'error');
             }
@@ -376,6 +376,19 @@ function savePhoto() {
         const originalFilename = currentImageName;
         const editedFilename = 'edited_' + originalFilename;
 
+        // Ambil nilai folder dari dropdown
+        const folderSelect = document.getElementById('folderSelect');
+        const selectedFolder = folderSelect.value;
+
+        // Pastikan folder telah dipilih
+        if (!selectedFolder) {
+            Swal.fire('Error', 'Please select a folder.', 'error');
+            return;
+        }
+
+        // Tambahkan nilai folder ke FormData
+        formData.append('folder', selectedFolder);
+
         fetch(`/pictures/${originalFilename}`)
             .then(response => response.blob())
             .then(originalBlob => {
@@ -384,10 +397,7 @@ function savePhoto() {
                 cropper.getCroppedCanvas().toBlob(blob => {
                     formData.append('edited', blob, editedFilename);
 
-                    const folderSelect = document.getElementById('folderSelect');
-                    const selectedFolder = folderSelect.value;
-                    formData.append('folder', selectedFolder);
-
+                    // Kirim data gambar ke server
                     fetch('/api/save-image', {
                         method: 'POST',
                         body: formData

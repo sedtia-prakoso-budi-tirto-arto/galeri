@@ -7,8 +7,6 @@ const cors = require('cors');
 const app = express();
 const port = 3001;
 
-const backupLog = [];
-
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -19,16 +17,32 @@ const upload = multer({
     dest: 'temp/', // Temporary storage for file uploads
 });
 
-// Base directory for network folder
-const baseDirectory = '\\\\192.168.1.22\\studio 2\\06082024';
-const mainFolder = '\\\\192.168.1.22\\studio 2\\FOTO BUPATI RENDRA';
-
-// Ensure base directory exists
-if (!fs.existsSync(baseDirectory)) {
-    fs.mkdirSync(baseDirectory, { recursive: true });
+// Function to get the current date in YYYYMMDD format
+function getCurrentDateString() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-indexed
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${day}${month}${year}`;
 }
 
-// Serve static files (e.g., images) from the correct directory
+// Base directory for network folder
+const mainFolder = '\\\\192.168.1.22\\studio 2\\FOTO BUPATI RENDRA';
+const backupBaseFolder = '\\\\192.168.1.22\\studio 2\\backup';
+
+// Function to get base directory based on current date
+function getBaseDirectory() {
+    const dateString = getCurrentDateString();
+    return `\\\\192.168.1.22\\studio 2\\${dateString}`;
+}
+
+// Function to get backup directory based on current date
+function getBackupDirectory() {
+    const dateString = getCurrentDateString();
+    return path.join(backupBaseFolder, dateString);
+}
+
+// Serve static files (e.g., images) from the main folder
 app.use('/pictures', express.static(mainFolder));
 
 // Serve gallery HTML
@@ -36,28 +50,31 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Array to keep track of backup operations
+const backupLog = [];
+
 // Endpoint to handle backup
 app.post('/api/backup-images', (req, res) => {
-    const mainFolder = '\\\\192.168.1.22\\studio 2\\FOTO BUPATI RENDRA';
-    const backupFolder = req.body.backupFolder;
+    const backupFolder = getBackupDirectory();
+    console.log('Backup folder:', backupFolder); // Debugging
 
-    // Validate the backup folder path
-    const fullBackupPath = path.join('\\\\192.168.1.22\\studio 2\\06082024', backupFolder);
-
-    if (!fs.existsSync(fullBackupPath)) {
-        return res.status(400).send('Backup folder does not exist.');
+    // Ensure backup folder exists
+    if (!fs.existsSync(backupFolder)) {
+        fs.mkdirSync(backupFolder, { recursive: true });
     }
 
     fs.readdir(mainFolder, (err, files) => {
-        if (err) return res.status(500).send('Error reading main folder: ' + err.message);
+        if (err) {
+            console.error('Error reading main folder:', err);
+            return res.status(500).json({ error: 'Error reading main folder' });
+        }
 
         const moveLog = [];
 
         files.forEach(file => {
             const srcPath = path.join(mainFolder, file);
-            const destPath = path.join(fullBackupPath, file);
+            const destPath = path.join(backupFolder, file);
 
-            // Check if file exists before attempting to move it
             if (!fs.existsSync(srcPath)) {
                 console.error(`Source file does not exist: ${srcPath}`);
                 return;
@@ -73,6 +90,7 @@ app.post('/api/backup-images', (req, res) => {
             });
         });
 
+        // Save moveLog to backupLog
         backupLog.push(moveLog);
 
         res.json({ success: true });
@@ -84,16 +102,25 @@ app.post('/api/undo-backup', (req, res) => {
         return res.status(400).json({ error: 'No backups to undo.' });
     }
 
-    const lastBackup = backupLog.pop();
+    const lastBackup = backupLog.pop(); // Retrieve last backup log
+
+    let undoErrors = [];
 
     lastBackup.forEach(move => {
-        fs.rename(move.dest, move.src, (err) => {
+        const srcPath = move.src;
+        const destPath = move.dest;
+
+        fs.rename(destPath, srcPath, (err) => {
             if (err) {
-                console.error(`Error moving file back: ${move.dest}`, err);
-                return res.status(500).json({ error: 'Failed to undo backup.' });
+                console.error(`Error moving file back: ${destPath}`, err);
+                undoErrors.push({ file: destPath, error: err.message });
             }
         });
     });
+
+    if (undoErrors.length > 0) {
+        return res.status(500).json({ error: 'Failed to undo some backups.', details: undoErrors });
+    }
 
     res.json({ success: true });
 });
@@ -123,8 +150,8 @@ app.get('/api/images', (req, res) => {
 
 // Endpoint to get backup folder images
 app.get('/api/backup-images', (req, res) => {
-    const backupFolder = req.query.folder || '';
-    const backupDir = path.join(baseDirectory, backupFolder);
+    const backupFolder = req.query.folder || getBackupDirectory();
+    const backupDir = path.join(backupFolder);
 
     console.log('Serving backup images from directory:', backupDir); // Debugging
 
@@ -146,6 +173,8 @@ app.get('/api/backup-images', (req, res) => {
 
 // Endpoint untuk mendapatkan daftar folder
 app.get('/api/folder-list', (req, res) => {
+    const baseDirectory = getBaseDirectory();
+
     fs.readdir(baseDirectory, (err, folders) => {
         if (err) {
             console.error('Error reading directory:', err);
@@ -177,11 +206,12 @@ app.post('/api/save-image', upload.fields([{ name: 'original' }, { name: 'edited
         return res.status(400).json({ success: false, message: 'Both original and edited files are required.' });
     }
 
+    const baseDirectory = getBaseDirectory();
     // Define directories
     const pilFolder = path.join(baseDirectory, folder, 'pil');
     const fixFolder = path.join(baseDirectory, folder, 'fix');
 
-    // Create directories if they do not exist
+    // Ensure directories exist
     if (!fs.existsSync(pilFolder)) {
         fs.mkdirSync(pilFolder, { recursive: true });
     }
