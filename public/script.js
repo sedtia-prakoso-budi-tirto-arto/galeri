@@ -120,7 +120,7 @@ function showPhoto(image) {
         if (cropper) {
             cropper.destroy();
         }
-    
+
         cropper = new Cropper(photoElement, {
             aspectRatio: 2 / 3,
             viewMode: 1,
@@ -135,7 +135,7 @@ function showPhoto(image) {
             highlight: false,
             dragMode: 'move'
         });
-    
+
         rotateControl = document.getElementById('rotateControl');
         if (rotateControl) {
             rotateControl.addEventListener('mousedown', startRotate);
@@ -144,21 +144,28 @@ function showPhoto(image) {
         } else {
             console.error('Rotate control not found');
         }
-    
+
         const hammer = new Hammer(photoElement);
+        hammer.get('pinch').set({ enable: true });
         hammer.get('rotate').set({ enable: true });
+        
+        hammer.on('pinchmove', (ev) => {
+            if (cropper) {
+                cropper.zoom(ev.scale - 1);
+            }
+        });
+
         hammer.on('rotatemove', (ev) => {
-            console.log('Rotation Event:', ev);
             if (cropper) {
                 cropper.rotate(ev.rotation * rotationSensitivity);
                 currentAngle += ev.rotation * rotationSensitivity;
                 currentAngle = normalizeAngle(currentAngle);
             }
         });
-    
+
         undoStack = [];
         saveStateForUndo();
-    });    
+    });
 
     $('#editPhotoModal').on('hidden.bs.modal', () => {
         if (cropper) {
@@ -172,7 +179,6 @@ function showPhoto(image) {
 }
 
 function startRotate(e) {
-    console.log("startRotate called");
     isRotating = true;
     if (rotateControl) {
         const rect = rotateControl.getBoundingClientRect();
@@ -186,7 +192,6 @@ function startRotate(e) {
 
 function rotateImage(e) {
     if (isRotating && rotateControl) {
-        console.log("rotateImage called");
         const rect = rotateControl.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
@@ -205,7 +210,6 @@ function rotateImage(e) {
 }
 
 function endRotate() {
-    console.log("endRotate called");
     isRotating = false;
 }
 
@@ -377,17 +381,14 @@ function savePhoto() {
         const originalFilename = currentImageName;
         const editedFilename = 'edited_' + originalFilename;
 
-        // Ambil nilai folder dari dropdown
         const folderSelect = document.getElementById('folderSelect');
         const selectedFolder = folderSelect.value;
 
-        // Pastikan folder telah dipilih
         if (!selectedFolder) {
             Swal.fire('Error', 'Please select a folder.', 'error');
             return;
         }
 
-        // Tambahkan nilai folder ke FormData
         formData.append('folder', selectedFolder);
 
         fetch(`/pictures/${originalFilename}`)
@@ -398,7 +399,6 @@ function savePhoto() {
                 cropper.getCroppedCanvas().toBlob(blob => {
                     formData.append('edited', blob, editedFilename);
 
-                    // Kirim data gambar ke server
                     fetch('/api/save-image', {
                         method: 'POST',
                         body: formData
