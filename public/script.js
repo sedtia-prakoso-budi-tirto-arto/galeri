@@ -6,6 +6,7 @@ const rotationSensitivity = 0.5;
 const maxDegrees = 360;
 let isBackupMode = false;
 let undoStack = [];
+let editedImageDataUrl = '';
 
 // Definisikan loadGallery di sini agar bisa diakses secara global
 function loadGallery() {
@@ -424,3 +425,48 @@ function savePhoto() {
             });
     }
 }
+
+function showLayout() {
+    if (cropper) {
+        // Mengambil cropped image data URL
+        cropper.getCroppedCanvas().toDataURL('image/png', (dataUrl) => {
+            // Membuat elemen gambar
+            const imageElements = [];
+            for (let i = 0; i < 9; i++) { // 3x3 layout
+                const img = document.createElement('img');
+                img.src = dataUrl;
+                img.style.width = '33%'; // Membagi ruang layout
+                img.style.padding = '1px'; // Sedikit jarak antar gambar
+                img.style.boxSizing = 'border-box';
+                imageElements.push(img);
+            }
+
+            const layoutPreview = document.getElementById('layoutPreview');
+            layoutPreview.innerHTML = ''; // Kosongkan konten sebelumnya
+            imageElements.forEach(img => layoutPreview.appendChild(img));
+
+            $('#layoutPreviewModal').modal('show');
+        });
+    } else {
+        Swal.fire('Error', 'No image is being edited.', 'error');
+    }
+}
+
+
+document.getElementById('showLayoutBtn').addEventListener('click', () => {
+    const layoutPreview = document.getElementById('layoutPreview');
+    const image = cropper.getCroppedCanvas().toDataURL(); // Dapatkan gambar yang telah dipotong
+
+    // Buat 9 thumbnail dengan gambar yang sama
+    layoutPreview.innerHTML = '';
+    for (let i = 0; i < 9; i++) {
+        const img = document.createElement('img');
+        img.src = image;
+        img.className = 'img-thumbnail';
+        img.style.width = '30%'; // Atur ukuran thumbnail
+        img.style.margin = '1%'; // Atur jarak antar thumbnail
+        layoutPreview.appendChild(img);
+    }
+
+    $('#layoutPreviewModal').modal('show');
+});
