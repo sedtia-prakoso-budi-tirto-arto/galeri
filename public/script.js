@@ -40,7 +40,6 @@ document.addEventListener("DOMContentLoaded", () => {
     fetch('/api/folder-list')
         .then(response => response.json())
         .then(folders => {
-            const folderSelect = document.getElementById('folderSelect');
             folders.forEach(folder => {
                 const option = document.createElement('option');
                 option.value = folder;
@@ -73,7 +72,6 @@ document.addEventListener("DOMContentLoaded", () => {
     loadGallery();
 
     backupBtn.addEventListener('click', () => {
-        // Create a folder name based on today's date
         const today = new Date();
         const folderName = `${today.getDate().toString().padStart(2, '0')}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getFullYear()}`;
         
@@ -150,9 +148,11 @@ function showPhoto(image) {
         hammer.get('rotate').set({ enable: true });
         hammer.on('rotatemove', (ev) => {
             console.log('Rotation Event:', ev);
-            cropper.rotate(ev.rotation * rotationSensitivity);
-            currentAngle += ev.rotation * rotationSensitivity;
-            currentAngle = normalizeAngle(currentAngle);
+            if (cropper) {
+                cropper.rotate(ev.rotation * rotationSensitivity);
+                currentAngle += ev.rotation * rotationSensitivity;
+                currentAngle = normalizeAngle(currentAngle);
+            }
         });        
 
         undoStack = [];
